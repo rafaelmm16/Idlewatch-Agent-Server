@@ -95,6 +95,9 @@ pip install "python-socketio[client]"
 
 # Biblioteca para coleta de métricas
 pip install psutil
+
+# Getting the Active Window Title
+pip install pywin32
 ```
 
 > **Nota:** Instalar `python-socketio[client]` já inclui `requests` e `websocket-client`, prevenindo erros comuns de transporte.
