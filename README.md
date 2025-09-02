@@ -83,6 +83,11 @@ pip install Flask flask-socketio
 # Opcional (recomendado para produção, escolha um)
 pip install eventlet
 # pip install gevent gevent-websocket
+
+# Dependências do Google Sheets
+pip install gspread google-auth
+
+pip install openpyxl
 ```
 
 #### Agente
