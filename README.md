@@ -51,7 +51,7 @@ Siga os passos abaixo para configurar e executar o ambiente completo.
 Primeiro, clone este repositório e crie um ambiente virtual para isolar as dependências.
 
 ```bash
-git clone <URL_DO_SEU_REPOSITORIO>
+git clone https://github.com/rafaelmm16/Idlewatch-Agent-Server.git
 cd Idlewatch-Agent-Server
 ```
 
