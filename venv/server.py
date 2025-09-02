@@ -1,29 +1,35 @@
-# server.py
-from flask import Flask, request
-from flask import jsonify
+# server.py (modificado)
+from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit
-from collections import defaultdict
 import time
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "troque-este-segredo"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-agents = {}  # socket_id -> {"host":"pc-01","last":{...}, "ts":123}
-by_host = {} # host -> socket_id
+agents = {}   # socket_id -> {"host":"pc-01","last":{...}, "ts":123}
+by_host = {}  # host -> socket_id
 
 @app.route("/")
 def index():
-    # Monta visão simples: host -> dados resumidos
+    # Visão simples: host -> dados resumidos (inclui campos Rocky/Ansys)
     data = {}
     for sid, rec in agents.items():
+        last = rec.get("last") or {}
         data[rec["host"]] = {
             "ts": rec["ts"],
-            "idle_seconds": (rec["last"] or {}).get("idle_seconds"),
-            "user_active": (rec["last"] or {}).get("user_active"),
-            "process_count": len((rec["last"] or {}).get("processes", [])),
+            "idle_seconds": last.get("idle_seconds"),
+            "user_active": last.get("user_active"),
+            "process_count": len(last.get("processes", [])),
+            "foreground_process": last.get("foreground_process"),
+            "rocky_running": last.get("rocky_running"),
+            "ansys_running": last.get("ansys_running"),
+            "rocky_in_focus": last.get("rocky_in_focus"),
+            "ansys_in_focus": last.get("ansys_in_focus"),
+            "rocky_user_active": last.get("rocky_user_active"),
+            "ansys_user_active": last.get("ansys_user_active"),
         }
-    return jsonify({"status": "ok", "agents": data}), 200
+    return jsonify({"status": "ok", "agents": data}), 200  # jsonify facilita cabeçalhos e serialização JSON [11]
 
 @socketio.on("connect")
 def on_connect():
@@ -38,18 +44,19 @@ def on_register(data):
     by_host[host] = request.sid
     agents[request.sid] = {"host": host, "last": None, "ts": time.time()}
     emit("registered", {"host": host})
-    socketio.emit("agent_list", {"hosts": list(by_host.keys())})  # broadcast lista atualizada
+    socketio.emit("agent_list", {"hosts": list(by_host.keys())})  # broadcast para todos [2][5]
 
 @socketio.on("agent_snapshot")
 def on_snapshot(payload):
-    print("agent_snapshot de", agents.get(request.sid, {}).get("host"), "itens:", len(payload.get("processes", [])))
-    # payload esperado: {"host": "...", "idle_seconds": 12.3, "user_active": true, "processes": [...]}
+    host = agents.get(request.sid, {}).get("host")
+    print("agent_snapshot de", host, "itens:", len(payload.get("processes", [])))
+    # payload esperado inclui os novos campos enviados pelo agente
     sid = request.sid
     if sid not in agents:
         return
     agents[sid]["last"] = payload
     agents[sid]["ts"] = time.time()
-    # Re-emitir para dashboards inscritos
+    # Re-emitir para dashboards inscritos (broadcast implícito fora de contexto) [5]
     socketio.emit("telemetry", payload)
 
 @socketio.on("disconnect")
