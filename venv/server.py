@@ -9,13 +9,13 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "troque-este-segredo"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-agents = {}   # socket_id -> {"host":"pc-01","last":{...}, "ts":123}
+agents = {}  # socket_id -> {"host":"pc-01","last":{...}, "ts":123}
 by_host = {}  # host -> socket_id
 HISTORY = []  # histórico simples em memória (para export Excel)
 
 # --------- Configuração Google Sheets ----------
 # Requer: pip install gspread google-auth
-USE_GOOGLE_SHEETS = True   # defina False se não quiser usar Sheets
+USE_GOOGLE_SHEETS = True  # defina False se não quiser usar Sheets
 SHEET_ID = "1NjKNLFDlSQNDvdomSGmiOXix7jaVM6E4PrimbP1DDV8"  # ex: 1AbCdEf... (URL da planilha)
 SHEET_WORKSHEET = "Sheet1"  # nome da aba; pode trocar
 
@@ -36,20 +36,21 @@ if USE_GOOGLE_SHEETS:
         SHEET = sh.worksheet(SHEET_WORKSHEET)
         app.logger.info("Google Sheets inicializado com sucesso.")
 
-        # --- INÍCIO DA MODIFICAÇÃO: VERIFICA E ADICIONA O CABEÇALHO ---
         # Pega todos os valores da planilha para verificar se está vazia
         all_values = SHEET.get_all_values()
         if not all_values:  # Se a lista estiver vazia, a planilha não tem nada
             app.logger.info("Planilha vazia. Escrevendo cabeçalhos...")
+
             headers = [
-                "timestamp", "host", "idle_seconds", "user_active",
-                "foreground_process", "rocky_running", "ansys_running",
-                "rocky_in_focus", "ansys_in_focus", "rocky_user_active",
-                "ansys_user_active", "process_count"
+                "timestamp", "host", #"idle_seconds",
+                "user_active", "foreground_process", "rocky_running",
+                "ansys_running", #"rocky_in_focus", #"ansys_in_focus",
+                #"rocky_user_active", #"ansys_user_active",
+                "process_count"
             ]
+
             # Adiciona a linha de cabeçalho na primeira linha
             SHEET.append_row(headers, value_input_option="USER_ENTERED")
-        # --- FIM DA MODIFICAÇÃO ---
 
     except Exception as e:
         app.logger.exception(f"Falha ao inicializar Google Sheets: {e}")
@@ -74,8 +75,10 @@ def sheets_append_snapshot(payload: dict):
         len(payload.get("processes", [])),
     ]
     try:
-        # append_row para uma linha, simples e direto [11]
-        SHEET.append_row(row, value_input_option="USER_ENTERED")
+        # --- MODIFICAÇÃO PRINCIPAL AQUI ---
+        # Insere a nova linha na segunda posição (logo abaixo do cabeçalho)
+        # O número 2 indica a linha onde a inserção ocorrerá.
+        SHEET.insert_row(row, 2, value_input_option="USER_ENTERED")
     except Exception as e:
         app.logger.exception(f"Falha ao escrever no Google Sheets: {e}")
 
@@ -98,13 +101,13 @@ def index():
             "rocky_user_active": last.get("rocky_user_active"),
             "ansys_user_active": last.get("ansys_user_active"),
         }
-    return jsonify({"status": "ok", "agents": data}), 200  # [13]
+    return jsonify({"status": "ok", "agents": data}), 200
 
 # --------- Exportação Excel ----------
 # Requer: pip install openpyxl
 @app.route("/export.xlsx")
 def export_xlsx():
-    from openpyxl import Workbook  # [12]
+    from openpyxl import Workbook
     from openpyxl.utils import get_column_letter
 
     wb = Workbook()
@@ -138,7 +141,7 @@ def export_xlsx():
         ws.column_dimensions[get_column_letter(idx)].width = 20
 
     bio = BytesIO()
-    wb.save(bio)  # salvar em memória [12][6]
+    wb.save(bio)  # salvar em memória
     bio.seek(0)
     return send_file(
         bio,
@@ -150,7 +153,7 @@ def export_xlsx():
 # --------- Socket.IO Handlers ----------
 @socketio.on("connect")
 def on_connect():
-    emit("hello", {"msg": "connected"})  # [14]
+    emit("hello", {"msg": "connected"})
 
 @socketio.on("agent_register")
 def on_register(data):
@@ -158,7 +161,7 @@ def on_register(data):
     by_host[host] = request.sid
     agents[request.sid] = {"host": host, "last": None, "ts": time.time()}
     emit("registered", {"host": host})
-    socketio.emit("agent_list", {"hosts": list(by_host.keys())})  # broadcast [14]
+    socketio.emit("agent_list", {"hosts": list(by_host.keys())})
 
 @socketio.on("agent_snapshot")
 def on_snapshot(payload):
@@ -184,7 +187,7 @@ def on_snapshot(payload):
     socketio.emit("telemetry", payload)
 
     # Escreve no Google Sheets
-    sheets_append_snapshot(payload)  # [11][1]
+    sheets_append_snapshot(payload)
 
 @socketio.on("disconnect")
 def on_disconnect():

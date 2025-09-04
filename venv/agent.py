@@ -6,7 +6,7 @@ SOCKETIO_PATH = "/socket.io/"
 HOSTNAME = platform.node()
 
 # ----- Configurações específicas -----
-IDLE_THRESHOLD_SECONDS = 30  # ajuste conforme necessário
+IDLE_THRESHOLD_SECONDS = 60  # ajuste conforme necessário
 ROCKY_EXEC_NAMES = {"rocky.exe", "rocky"}        # normalizar possíveis nomes
 ANSYS_EXEC_NAMES = {"ansys.exe", "ansys", "runwb2.exe", "ansysedt.exe"}  # inclua variantes
 
