@@ -24,18 +24,33 @@ SHEET = None
 
 if USE_GOOGLE_SHEETS:
     try:
-        import gspread  # [11]
+        import gspread
         from google.oauth2.service_account import Credentials
         SCOPES = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
         ]
-        CREDS = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)  # coloque o seu arquivo
-        GSPREAD_CLIENT = gspread.authorize(CREDS)  # [11]
-        # Abre por ID e seleciona a worksheet
-        sh = GSPREAD_CLIENT.open_by_key(SHEET_ID)  # [11]
+        CREDS = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+        GSPREAD_CLIENT = gspread.authorize(CREDS)
+        sh = GSPREAD_CLIENT.open_by_key(SHEET_ID)
         SHEET = sh.worksheet(SHEET_WORKSHEET)
         app.logger.info("Google Sheets inicializado com sucesso.")
+
+        # --- INÍCIO DA MODIFICAÇÃO: VERIFICA E ADICIONA O CABEÇALHO ---
+        # Pega todos os valores da planilha para verificar se está vazia
+        all_values = SHEET.get_all_values()
+        if not all_values:  # Se a lista estiver vazia, a planilha não tem nada
+            app.logger.info("Planilha vazia. Escrevendo cabeçalhos...")
+            headers = [
+                "timestamp", "host", "idle_seconds", "user_active",
+                "foreground_process", "rocky_running", "ansys_running",
+                "rocky_in_focus", "ansys_in_focus", "rocky_user_active",
+                "ansys_user_active", "process_count"
+            ]
+            # Adiciona a linha de cabeçalho na primeira linha
+            SHEET.append_row(headers, value_input_option="USER_ENTERED")
+        # --- FIM DA MODIFICAÇÃO ---
+
     except Exception as e:
         app.logger.exception(f"Falha ao inicializar Google Sheets: {e}")
         USE_GOOGLE_SHEETS = False
@@ -47,15 +62,15 @@ def sheets_append_snapshot(payload: dict):
     row = [
         time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
         payload.get("host"),
-        payload.get("idle_seconds"),
+        #payload.get("idle_seconds"),
         payload.get("user_active"),
         payload.get("foreground_process"),
         payload.get("rocky_running"),
         payload.get("ansys_running"),
-        payload.get("rocky_in_focus"),
-        payload.get("ansys_in_focus"),
-        payload.get("rocky_user_active"),
-        payload.get("ansys_user_active"),
+        #payload.get("rocky_in_focus"),
+        #payload.get("ansys_in_focus"),
+        #payload.get("rocky_user_active"),
+        #payload.get("ansys_user_active"),
         len(payload.get("processes", [])),
     ]
     try:
