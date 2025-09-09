@@ -4,6 +4,7 @@ from flask_socketio import SocketIO, emit
 import time
 from io import BytesIO
 import logging
+import socket
 
 # --------- Configuração Flask/Socket.IO ----------
 app = Flask(__name__)
@@ -258,4 +259,20 @@ def on_disconnect():
 
 if __name__ == "__main__":
     initialize_google_sheets()
-    socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
+
+    # Bloco para descobrir e imprimir o IP local
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        local_ip = "127.0.0.1" # Fallback para localhost
+
+    port = 5000
+    print("======================================================")
+    print(f"✅ Servidor pronto e acessível na sua rede local em:")
+    print(f"   http://{local_ip}:{port}")
+    print("======================================================")
+
+    socketio.run(app, host="0.0.0.0", port=port, allow_unsafe_werkzeug=True)
