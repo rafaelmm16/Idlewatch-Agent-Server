@@ -11,15 +11,19 @@ ROCKY_EXEC_NAMES = {"rocky.exe", "rocky"}        # normalizar possíveis nomes
 ANSYS_EXEC_NAMES = {"ansys.exe", "ansys", "runwb2.exe", "ansysedt.exe"}  # inclua variantes
 
 # ----- Utilidades de processos -----
-def list_processes(limit=50):
+def list_processes():
+    """Retorna uma lista de todos os processos em execução."""
     procs = []
-    for p in psutil.process_iter(attrs=["pid","name","status"]):
+    for p in psutil.process_iter(attrs=["pid", "name", "status"]):
         try:
             info = p.info
-            procs.append({"pid": info["pid"], "name": info["name"], "status": info["status"]})
-        except Exception:
+            # Ignora processos sem nome ou com status inválido se desejar
+            if info.get("name"):
+                procs.append({"pid": info["pid"], "name": info["name"], "status": info["status"]})
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            # Lida com processos que podem terminar durante a iteração
             continue
-    return procs[:limit]
+    return procs
 
 def is_any_process_running(names: set) -> bool:
     names_lower = {n.lower() for n in names}
@@ -120,11 +124,15 @@ def snapshot(threshold=IDLE_THRESHOLD_SECONDS):
     rocky_user_active = bool(user_active and rocky_in_focus)
     ansys_user_active = bool(user_active and ansys_in_focus)
 
+    # Obter a lista completa de processos
+    all_processes = list_processes()
+
     return {
         "host": HOSTNAME,
         "idle_seconds": idle,
         "user_active": user_active,
-        "processes": list_processes(),
+        "process_count": len(all_processes), # <-- Adicionamos a contagem total
+        "processes": all_processes,          # <-- Agora envia a lista completa
         "rocky_running": rocky_running,
         "ansys_running": ansys_running,
         "rocky_in_focus": rocky_in_focus,
