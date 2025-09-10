@@ -34,7 +34,8 @@ METRIC_ORDER = [
     "foreground_process",
     "rocky_running",
     "ansys_running",
-    "process_count",
+    "cpu_percent",
+    "memory_percent",
     # Adicione outras métricas aqui se precisar
 ]
 # Mapeia um hostname para sua respectiva letra de coluna (ex: {"pc-01": "B", "pc-02": "C"})
@@ -110,7 +111,7 @@ def sheets_update_host_data(payload: dict):
             next_col_idx = len(HOST_COLUMN_MAP) + 2  # +2 porque a coluna 1 é de métricas
             col_letter = rowcol_to_a1(1, next_col_idx)[:-1]
             app.logger.info(f"Host '{host}' é novo. Adicionando na coluna {col_letter}.")
-            
+
             # Adiciona o nome do host no cabeçalho (linha 1)
             SHEET.update_cell(1, next_col_idx, host)
             SHEET.format(f"{col_letter}1", {"textFormat": {"bold": True}})
@@ -126,15 +127,16 @@ def sheets_update_host_data(payload: dict):
             payload.get("foreground_process"),
             payload.get("rocky_running"),
             payload.get("ansys_running"),
-            len(payload.get("processes", [])),
+            payload.get("cpu_percent"),
+            payload.get("memory_percent"),
         ]
-        
+
         # Prepara para a API do gspread (lista de listas)
         formatted_values = [[val] for val in values_to_update]
 
         # Define o range para atualizar (ex: "B2:B7")
         update_range = f"{col_letter}2:{col_letter}{len(formatted_values) + 1}"
-        
+
         # Faz a atualização da coluna
         SHEET.update(update_range, formatted_values, value_input_option="USER_ENTERED")
 
@@ -151,7 +153,8 @@ def index():
             "ts": rec["ts"],
             "idle_seconds": last.get("idle_seconds"),
             "user_active": last.get("user_active"),
-            "process_count": len(last.get("processes", [])),
+            "cpu_percent": last.get("cpu_percent"),
+            "memory_percent": last.get("memory_percent"),
             "foreground_process": last.get("foreground_process"),
             "rocky_running": last.get("rocky_running"),
             "ansys_running": last.get("ansys_running"),
@@ -176,7 +179,7 @@ def export_xlsx():
     headers = [
         "timestamp","host","idle_seconds","user_active","foreground_process",
         "rocky_running","ansys_running","rocky_in_focus","ansys_in_focus",
-        "rocky_user_active","ansys_user_active","process_count"
+        "rocky_user_active","ansys_user_active","cpu_percent", "memory_percent"
     ]
     ws.append(headers)
 
@@ -193,7 +196,8 @@ def export_xlsx():
             rec.get("ansys_in_focus"),
             rec.get("rocky_user_active"),
             rec.get("ansys_user_active"),
-            len(rec.get("processes", [])),
+            rec.get("cpu_percent"),
+            rec.get("memory_percent"),
         ])
 
     for idx, _ in enumerate(headers, start=1):
@@ -226,7 +230,7 @@ def on_register(data):
 def on_snapshot(payload):
     sid = request.sid
     host = agents.get(sid, {}).get("host")
-    app.logger.info(f"Recebido agent_snapshot de '{host}' com {len(payload.get('processes', []))} processos.")
+    app.logger.info(f"Recebido agent_snapshot de '{host}'.")
 
     if sid not in agents:
         return

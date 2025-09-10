@@ -1,4 +1,4 @@
-# agent.py (modificado)
+# agent.py
 import time, platform, psutil, socketio, subprocess, shutil
 
 SERVER_URL = "http://172.16.231.61:5000"
@@ -11,20 +11,6 @@ ROCKY_EXEC_NAMES = {"rocky.exe", "rocky"}        # normalizar possíveis nomes
 ANSYS_EXEC_NAMES = {"ansys.exe", "ansys", "runwb2.exe", "ansysedt.exe"}  # inclua variantes
 
 # ----- Utilidades de processos -----
-def list_processes():
-    """Retorna uma lista de todos os processos em execução."""
-    procs = []
-    for p in psutil.process_iter(attrs=["pid", "name", "status"]):
-        try:
-            info = p.info
-            # Ignora processos sem nome ou com status inválido se desejar
-            if info.get("name"):
-                procs.append({"pid": info["pid"], "name": info["name"], "status": info["status"]})
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            # Lida com processos que podem terminar durante a iteração
-            continue
-    return procs
-
 def is_any_process_running(names: set) -> bool:
     names_lower = {n.lower() for n in names}
     for p in psutil.process_iter(attrs=["name"]):
@@ -84,7 +70,7 @@ def get_foreground_process_name():
                     universal_newlines=True, stderr=subprocess.DEVNULL
                 )
                 # linha como: _NET_ACTIVE_WINDOW(WINDOW): window id # 0x04000007
-                parts = root.strip().split() 
+                parts = root.strip().split()
                 win_id = parts[-1] if parts else None
                 if not win_id or win_id == "0x0":
                     return None
@@ -124,15 +110,12 @@ def snapshot(threshold=IDLE_THRESHOLD_SECONDS):
     rocky_user_active = bool(user_active and rocky_in_focus)
     ansys_user_active = bool(user_active and ansys_in_focus)
 
-    # Obter a lista completa de processos
-    all_processes = list_processes()
-
     return {
         "host": HOSTNAME,
         "idle_seconds": idle,
         "user_active": user_active,
-        "process_count": len(all_processes), # <-- Adicionamos a contagem total
-        "processes": all_processes,          # <-- Agora envia a lista completa
+        "cpu_percent": psutil.cpu_percent(),
+        "memory_percent": psutil.virtual_memory().percent,
         "rocky_running": rocky_running,
         "ansys_running": ansys_running,
         "rocky_in_focus": rocky_in_focus,
