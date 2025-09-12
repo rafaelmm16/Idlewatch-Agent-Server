@@ -1,172 +1,91 @@
-# Idlewatch-Agent-Server
+# Idlewatch Agent Server
 
-![Versão](https://img.shields.io/badge/version-1.0.0-blue)
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
+## Descrição
 
-Um sistema leve de monitoramento em tempo real. É composto por um **agente** em Python que coleta o tempo de inatividade (`idle_time`) e os processos em execução, e um **servidor** Flask-SocketIO que recebe, armazena em memória e transmite esses dados para dashboards ou outros consumidores.
+Este projeto consiste em um servidor de monitoramento que coleta dados de computadores em uma unidade organizacional (OU) do Active Directory (AD). O servidor coleta informações como uso de CPU, uso de memória, tempo ocioso e processos em execução. Os dados coletados são então enviados para uma Planilha Google para fácil visualização e análise.
+
 
 ## ✨ Principais Funcionalidades
 
--   **Monitoramento em Tempo Real**: Visualize o tempo de ociosidade e os processos de uma máquina remotamente.
--   **Agente Leve**: O agente em Python utiliza `psutil` para uma coleta de dados eficiente e com baixo consumo de recursos.
--   **Servidor Centralizado**: O servidor Flask com Socket.IO gerencia múltiplas conexões de agentes e distribui os dados de forma reativa.
--   **Transmissão via WebSockets**: Dados são enviados aos clientes conectados (dashboards) através do evento `telemetry`, garantindo baixa latência.
--   **Endpoints HTTP**: Inclui rotas HTTP para uma rápida verificação do estado do servidor e dos dados coletados.
--   **Fácil de Configurar**: Requer poucas dependências e uma configuração mínima para começar a operar.
+- **Coleta de Dados Remota:** Utiliza o WinRM para executar scripts PowerShell remotamente e coletar dados das máquinas-alvo.
+- **Integração com Active Directory:** Busca automaticamente a lista de computadores a serem monitorados de uma OU específica do AD.
+- **Métricas Coletadas:**
+    - Uso de CPU (%)
+    - Uso de Memória (%)
+    - Tempo Ocioso do Usuário (em minutos)
+    - Lista de Processos em Execução (ID, Nome do Processo, Usuário)
+- **Integração com Google Sheets:** Envia os dados coletados para uma Planilha Google, limpando os dados antigos e inserindo os novos a cada ciclo.
+- **Diagnóstico de Falhas:** Identifica e reporta falhas na coleta de dados (e.g., falha de conexão, dados parciais) na própria planilha.
+- **Execução Contínua:** Opera em um loop contínuo, atualizando os dados em intervalos definidos (padrão: 60 segundos).
 
-## 🚀 Como Funciona
+## Pré-requisitos
 
-O fluxo de dados é simples e direto, garantindo performance e escalabilidade para pequenos e médios ambientes.
+- Python 3.x
+- Acesso de administrador ao servidor onde o script será executado.
+- Módulo PowerShell do Active Directory instalado no servidor.
+- Credenciais de administrador de domínio para acesso remoto às máquinas.
+- WinRM configurado e habilitado nas máquinas-alvo para permitir a execução remota de scripts.
+- Uma conta de serviço do Google Cloud com a API do Google Sheets habilitada.
 
-```
-+-----------------+      (Envia dados periodicamente)      +----------------------+      (Transmite em tempo real)      +-----------------------+
-|                 |--------------------------------------->|                      |------------------------------------->|                       |
-|  Agente Python  |                                        |  Servidor Flask-IO   |                                      |  Dashboard / Consumidor |
-| (em cada máquina) |<---------------------------------------| (Armazena em memória) |<--------------------------------------|   (Conectado via WS)    |
-|                 |      (Comandos/Confirmações)           |                      |       (Solicitações HTTP)            |                       |
-+-----------------+                                        +----------------------+                                      +-----------------------+
-```
+## Configuração
 
-1.  O **Agente** (`agent.py`) é executado na máquina a ser monitorada. Ele coleta o `idle_time` e a lista de processos a cada poucos segundos.
-2.  Esses dados são enviados via Socket.IO para o **Servidor** (`server.py`).
-3.  O **Servidor** armazena o estado mais recente de cada agente conectado em um dicionário em memória.
-4.  Sempre que novos dados chegam, o servidor os transmite através do evento `telemetry` para todos os clientes conectados (como um dashboard web).
-
-## 🔧 Começando
-
-Siga os passos abaixo para configurar e executar o ambiente completo.
-
-### Pré-requisitos
-
--   Python 3.8 ou superior.
--   `pip` e `venv` (geralmente incluídos com o Python).
--   Para agentes em Linux, é recomendado ter o `xprintidle` para uma medição de ociosidade mais precisa.
-    ```bash
-    # Debian/Ubuntu
-    sudo apt-get install xprintidle
-    ```
-
-### 1. Preparando o Ambiente
-
-Primeiro, clone este repositório e crie um ambiente virtual para isolar as dependências.
-
-```bash
-git clone https://github.com/rafaelmm16/Idlewatch-Agent-Server.git
-cd Idlewatch-Agent-Server
-```
-
-**Criar e ativar ambiente virtual:**
-
--   No Windows:
-    ```shell
-    python -m venv venv
-    venv\Scripts\activate
-    ```
--   No Linux ou macOS:
-    ```shell
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-### 2. Instalando as Dependências
-
-As dependências são divididas entre o servidor e o agente.
-
-#### Servidor
-
-O servidor precisa do Flask, Flask-SocketIO e, opcionalmente, um servidor WSGI de alta performance como `eventlet` ou `gevent`.
-
-```shell
-# Dependências principais
-pip install Flask flask-socketio
-
-# Opcional (recomendado para produção, escolha um)
-pip install eventlet
-# pip install gevent gevent-websocket
-
-# Dependências do Google Sheets
-pip install gspread google-auth
-
-pip install openpyxl
-
-pip install pywinrm
-```
-
-#### Agente
-
-O agente precisa do cliente Socket.IO e do `psutil` para coletar as métricas.
-
-```shell
-# Cliente Socket.IO com todas as dependências de transporte
-pip install "python-socketio[client]"
-
-# Biblioteca para coleta de métricas
-pip install psutil
-
-# Getting the Active Window Title
-pip install pywin32
-```
-
-> **Nota:** Instalar `python-socketio[client]` já inclui `requests` e `websocket-client`, prevenindo erros comuns de transporte.
-
-## ⚙️ Uso
-
-Após a instalação, você pode iniciar o servidor e, em seguida, o agente.
-
-### 1. Executar o Servidor
-
-O servidor deve ser iniciado primeiro para que os agentes possam se conectar.
-
-```shell
-python server.py
-```
-
-> **Importante**: Certifique-se de que no seu `server.py` você está usando `socketio.run(app, ...)` em vez do `app.run(...)` do Flask para que o servidor WebSocket funcione corretamente.
->
-> ```python
-> # Exemplo em server.py
-> if __name__ == '__main__':
->     socketio.run(app, host="0.0.0.0", port=5000, debug=True)
-> ```
-
-### 2. Configurar e Executar o Agente
-
-Antes de iniciar o agente, edite o arquivo `agent.py` e ajuste a variável `SERVER_URL` para o endereço IP e porta onde o servidor está sendo executado.
+Antes de executar o script, você precisa configurar as seguintes variáveis no arquivo `server.py`:
 
 ```python
-# Em agent.py
-SERVER_URL = "http://localhost:5000" # Ou "http://<IP_DO_SERVIDOR>:5000"
+# --- CONFIGURAÇÃO ---
+AD_OU_DN = "OU=Desktops,OU=TI,DC=meudominio,DC=local"
+ADMIN_USER = 'seu_usuario_admin'
+ADMIN_PASSWORD = 'sua_senha_admin'
+GOOGLE_SHEET_NAME = "Monitoramento de Laboratórios - CTI"
 ```
+### Configuração
 
-Agora, execute o agente:
+Antes de executar o script, você precisa configurar as seguintes variáveis no arquivo `server.py`:
 
-```shell
-python agent.py
-```
+- `AD_OU_DN`: O Distinguished Name da Unidade Organizacional do Active Directory onde os computadores a serem monitorados estão localizados.
+- `ADMIN_USER`: O nome de usuário de um administrador de domínio com permissões para acessar as máquinas remotamente.
+- `ADMIN_PASSWORD`: A senha do administrador de domínio.
+- `GOOGLE_SHEET_NAME`: O nome da Planilha Google para onde os dados serão enviados.
 
-O agente começará a enviar dados para o servidor imediatamente.
+### Configuração do Google Sheets
 
-## 📡 API e Eventos
+1.  **Crie um projeto no Google Cloud Platform:** Se você ainda não tiver um, crie um novo projeto.
+2.  **Ative a API do Google Sheets:** No painel do seu projeto, vá para "APIs e Serviços" > "Biblioteca" e ative a "Google Sheets API".
+3.  **Crie uma Conta de Serviço:**
+    1.  Vá para "APIs e Serviços" > "Credenciais".
+    2.  Clique em "Criar credenciais" e selecione "Conta de serviço".
+    3.  Dê um nome à conta de serviço e conceda a ela o papel de "Editor".
+    4.  Clique em "Concluir" e, em seguida, na lista de contas de serviço, clique na que você acabou de criar.
+    5.  Vá para a aba "Chaves", clique em "Adicionar Chave" > "Criar nova chave".
+    6.  Selecione "JSON" como o tipo de chave e o download do arquivo `credentials.json` será iniciado.
+4.  **Mova o `credentials.json`:** Coloque o arquivo `credentials.json` no mesmo diretório do `server.py`.
+5.  **Compartilhe a Planilha:** Abra a Planilha Google que você especificou em `GOOGLE_SHEET_NAME` e compartilhe-a com o endereço de e-mail da conta de serviço que você criou (encontrado nos detalhes da conta de serviço no Google Cloud Platform).
 
-A comunicação principal ocorre via Socket.IO, mas o servidor também expõe rotas HTTP.
+## Instalação
 
-### Eventos Socket.IO
-
--   **`telemetry`**: Evento emitido pelo servidor para todos os clientes conectados sempre que um agente envia novos dados.
-
-    **Payload de exemplo:**
-    ```json
-    {
-      "host": "nome-da-maquina",
-      "idle_time": 12.34,
-      "processes": [
-        {"pid": 101, "name": "chrome.exe", "username": "user"},
-        {"pid": 102, "name": "code.exe", "username": "user"}
-      ]
-    }
+1.  Clone o repositório:
+    ```bash
+    git clone [https://github.com/seu-usuario/idlewatch-agent-server.git](https://github.com/seu-usuario/idlewatch-agent-server.git)
+    cd idlewatch-agent-server
+    ```
+2.  Crie e ative um ambiente virtual (recomendado):
+    ```bash
+    python -m venv venv
+    
+    # No Windows
+    venv\Scripts\activate
+    
+    # No Linux/macOS
+    # source venv/bin/activate
+    ```
+3.  Instale as dependências:
+    ```bash
+    pip install gspread pywinrm
     ```
 
-### Rotas HTTP
+## Uso
 
--   **`GET /`**: Rota básica que retorna uma mensagem de status para confirmar que o servidor está online.
--   **`GET /data`**: Retorna um JSON com os dados mais recentes de todos os agentes conectados, útil para debug ou integrações pontuais.
+Para iniciar o servidor de monitoramento, execute o seguinte comando no terminal:
+
+```bash
+python server.py
