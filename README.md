@@ -88,6 +88,8 @@ pip install eventlet
 pip install gspread google-auth
 
 pip install openpyxl
+
+pip install pywinrm
 ```
 
 #### Agente
